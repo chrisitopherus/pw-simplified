@@ -1,0 +1,25 @@
+{
+  "name": "pw-simplified",
+  "version": "0.2.0",
+  "description": "Pw-Simplified is a fast and small JavaScript / Typescript library. Its API is easy and intuitive and really shines with Typescript.",
+  "main": "lib",
+  "types": "lib",
+  "scripts": {},
+  "keywords": [
+    "Password",
+    "PW",
+    "easy",
+    "ts",
+    "generate",
+    "validate",
+    "typescript",
+    "generating",
+    "validating",
+    "shuffle"
+  ],
+  "author": "jochchristopher",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^4.6.3"
+  }
+}
