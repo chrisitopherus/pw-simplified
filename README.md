@@ -8,6 +8,8 @@
 
 Pw-Simplified is a fast and small JavaScript / Typescript library. Its API is easy and intuitive and really shines with Typescript.
 
+### Note: It uses Math.random(). Since this modules purpose was to be used in the front-end as well. But if you want to use the crypto module then use the provided CryptoPassword Class
+
 ---
 
 ## Core Features
@@ -20,7 +22,7 @@ Pw-Simplified is a fast and small JavaScript / Typescript library. Its API is ea
 
 ## Why Pw-Simplified?
 
-It was created due to my own laziness and because I did not want to reapeat myself over and over again. So i thought about making a small module which is compact and leightweight.
+It was created due to my own laziness and because I did not want to reapeat myself over and over again. So I thought about making a small module which is compact and leightweight.
 
 ## Whats new in version 0.2.0 (shuffle)
 
@@ -44,14 +46,18 @@ npm i pw-simplified
 
 ### Import
 
-#### Note: Default Imports a Class! Give it any name
+#### Note: No longer with default import
 
 ```javascript
 // with require
-const Pass = require('pw-simplified');
+const {Password, CryptoPassword} = require('pw-simplified');
+// ofc you can give the classes any alias you want, like
+const {Password: Pass, CryptoPassword: CPass} = require('pw-simplified');
 
 // with import
-import Pass from 'pw-simplified';
+import {Password, CryptoPassword} from 'pw-simplified';
+// ofc you can give the classes any alias you want, like
+import {Password as Pass, CryptoPassword as CPass}
 ```
 
 ### Configuration

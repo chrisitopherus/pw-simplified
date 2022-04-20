@@ -1,5 +1,8 @@
-const random = (min: number, max: number) => {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+// import modules
+import { randomInt } from 'crypto';
 
-export { random };
+const randomMath = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const randomCrypto = (min: number, max: number) => randomInt(min, max + 1);
+
+export { randomMath, randomCrypto };

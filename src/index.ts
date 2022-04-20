@@ -1,5 +1,5 @@
 // import util
-import { random } from "./util/random";
+import { randomMath, randomCrypto } from "./util/random.js";
 
 // import types
 import { GenConfig, ValConfig, GenConfigPartial, ValConfigPartial } from "./types/config";
@@ -11,9 +11,9 @@ import { ShuffleOptions } from './types/options';
  * Class to instanciate new instances with configurable Options.
  */
 class Password {
-    private _genConfig: GenConfig;
-    private _valConfig: ValConfig;
-    private _valRegEx: RegExp;
+    protected _genConfig: GenConfig;
+    protected _valConfig: ValConfig;
+    protected _valRegEx: RegExp;
     /**
      * @constructor
      * @param genConfig Configuration Object for generating Passwords
@@ -52,23 +52,23 @@ class Password {
             const count = availableCounters.length;
             const removedCounters: string[] = [];
             for (let i = 0; i < this._genConfig.length; ++i) {
-                const key = availableCounters[random(0, availableCounters.length - 1)];
+                const key = availableCounters[randomMath(0, availableCounters.length - 1)];
                 if (key === 'lowercase') {
-                    pw += letters.toLowerCase()[random(0, letters.length - 1)];
+                    pw += letters.toLowerCase()[randomMath(0, letters.length - 1)];
                     counter.lowercase!++;
                 } else if (key === 'uppercase') {
-                    pw += letters.toUpperCase()[random(0, letters.length - 1)];
+                    pw += letters.toUpperCase()[randomMath(0, letters.length - 1)];
                     counter.uppercase!++;
                 } else if (key === 'numbers') {
-                    pw += random(0, 9).toString();
+                    pw += randomMath(0, 9).toString();
                     counter.numbers!++;
                 } else { // symbols
                     if (typeof this._genConfig.special === 'boolean') { // use predefined specials
-                        if (this._genConfig.special) pw += specials[random(0, specials.length - 1)];
+                        if (this._genConfig.special) pw += specials[randomMath(0, specials.length - 1)];
                         else pw += ' ';
                     } else { // use user defined specials
                         if (this._genConfig.special) {
-                            pw += this._genConfig.special[random(0, this._genConfig.special.length - 1)];
+                            pw += this._genConfig.special[randomMath(0, this._genConfig.special.length - 1)];
                         } else { // user defined nothing so just use spaces
                             pw += ' ';
                         }
@@ -85,7 +85,7 @@ class Password {
                     }
                     if (used.length !== count) { // when there are things not used already
                         // remove one of the already used things out of the pool and add it to the removed pool
-                        removedCounters.push(...availableCounters.splice(availableCounters.indexOf(used[random(0, used.length - 1)]), 1));
+                        removedCounters.push(...availableCounters.splice(availableCounters.indexOf(used[randomMath(0, used.length - 1)]), 1));
                     } else { // everything already used -> restore availableCounters
                         availableCounters.push(...removedCounters.splice(0));
                     }
@@ -135,7 +135,7 @@ class Password {
     /**
      * Method that creates the counter Object.
      */
-    private createGenerationCounters() {
+    protected createGenerationCounters() {
         const counter: Counter = {};
         if (this._genConfig.lowercase) counter.lowercase = 0;
         if (this._genConfig.numbers) counter.numbers = 0;
@@ -148,7 +148,7 @@ class Password {
      * Method that creates a RegEx out of the Validation Config Object.
      * @param config Configuration Object for validating Passwords.
      */
-    private createRegEx(config: ValConfig) {
+    protected createRegEx(config: ValConfig) {
         let regString = "^";
         if (config.lowercase || config.numbers || config.uppercase || config.special) {
             if (config.lowercase) regString += "(?=.*[a-z])";
@@ -215,7 +215,9 @@ class Password {
      * ```
      */
     set genConfig(newConfig: GenConfigPartial) {
-        this._genConfig = { ...this._genConfig, ...newConfig };
+        if (newConfig instanceof Object && !(newConfig instanceof Array)) {
+            this._genConfig = { ...this._genConfig, ...newConfig };
+        }
     }
 
     /**
@@ -238,8 +240,10 @@ class Password {
      * ```
      */
     set valConfig(newConfig: ValConfigPartial) {
-        this._valConfig = { ...this._valConfig, ...newConfig };
-        this._valRegEx = this.createRegEx(this._valConfig);
+        if (newConfig instanceof Object && !(newConfig instanceof Array)) {
+            this._valConfig = { ...this._valConfig, ...newConfig };
+            this._valRegEx = this.createRegEx(this._valConfig);
+        }
     }
 
     /**
@@ -249,4 +253,99 @@ class Password {
         return Object.freeze(Object.assign({}, this._valConfig));
     }
 }
-export = Password;
+
+// ! CryptoPassword should extend Password in order to prevent DRY
+// ? Everywhere the Password Class uses Math.random, reimplement function for usage of crypto.randomInt();
+/**
+ * @class
+ * Class to instanciate new instances with configurable Options that uses the crypto Module.
+ */
+class CryptoPassword extends Password {
+    /**
+     * @constructor
+     * @param genConfig Configuration Object for generating Passwords
+     * @param valConfig Configuration Object for validating Passwords. Its worth noting that it will be checked if the true values exist at least once. All other characters are also allowed.
+     */
+    constructor(genConfig: GenConfig, valConfig: ValConfig) {
+        super(genConfig, valConfig);
+    }
+
+    /**
+     * Method that generates a Password with the saved genConfig.
+     */
+    generate() {
+        if (this._genConfig.length && this._genConfig.length > 0) { // if value was set and bigger than 0
+            let pw = '';
+            const letters = 'abcdefghijklmnopqrstuvwxyz';
+            const specials = `~\`!@#$%^&*()_-+={[}]|\\:;"'<,>.?/`;
+            const counter: Counter = this.createGenerationCounters();
+            const availableCounters = Object.keys(counter);
+            const count = availableCounters.length;
+            const removedCounters: string[] = [];
+            for (let i = 0; i < this._genConfig.length; ++i) {
+                const key = availableCounters[randomCrypto(0, availableCounters.length - 1)];
+                if (key === 'lowercase') {
+                    pw += letters.toLowerCase()[randomCrypto(0, letters.length - 1)];
+                    counter.lowercase!++;
+                } else if (key === 'uppercase') {
+                    pw += letters.toUpperCase()[randomCrypto(0, letters.length - 1)];
+                    counter.uppercase!++;
+                } else if (key === 'numbers') {
+                    pw += randomCrypto(0, 9).toString();
+                    counter.numbers!++;
+                } else { // symbols
+                    if (typeof this._genConfig.special === 'boolean') { // use predefined specials
+                        if (this._genConfig.special) pw += specials[randomCrypto(0, specials.length - 1)];
+                        else pw += ' ';
+                    } else { // use user defined specials
+                        if (this._genConfig.special) {
+                            pw += this._genConfig.special[randomCrypto(0, this._genConfig.special.length - 1)];
+                        } else { // user defined nothing so just use spaces
+                            pw += ' ';
+                        }
+                    }
+                    counter.special!++;
+                }
+                if (this._genConfig.length - availableCounters.length - 1 < i) {
+                    // 1. iterate through all counters
+                    let used: string[] = [];
+                    for (let i = 0; i < availableCounters.length; ++i) {
+                        if (counter[availableCounters[i]] !== 0) { // already used 
+                            used.push(availableCounters[i]);
+                        }
+                    }
+                    if (used.length !== count) { // when there are things not used already
+                        // remove one of the already used things out of the pool and add it to the removed pool
+                        removedCounters.push(...availableCounters.splice(availableCounters.indexOf(used[randomCrypto(0, used.length - 1)]), 1));
+                    } else { // everything already used -> restore availableCounters
+                        availableCounters.push(...removedCounters.splice(0));
+                    }
+                }
+            }
+            return pw;
+        }
+        else {
+            if (this._genConfig.length === 0) { // just return empty string
+                return "";
+            }
+            if (this._genConfig.length < 0) { // throw error that invalid length
+                throw new Error(`${this._genConfig.length} is not a valid length. Provide a positive Number.`)
+            }
+            throw new Error(`Invalid length property value "${this._genConfig.length}".`);
+        }
+    }
+
+}
+
+export { Password, CryptoPassword };
+
+const pw = new CryptoPassword({
+    length: 8,
+    lowercase: true,
+    numbers: true,
+    special: true,
+    uppercase: true
+}, {
+    minLength: 8
+})
+console.log(pw.genConfig);
