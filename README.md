@@ -57,7 +57,7 @@ const {Password: Pass, CryptoPassword: CPass} = require('pw-simplified');
 // with import
 import {Password, CryptoPassword} from 'pw-simplified';
 // ofc you can give the classes any alias you want, like
-import {Password as Pass, CryptoPassword as CPass}
+import {Password as Pass, CryptoPassword as CPass} from 'pw-simplified';
 ```
 
 ### Configuration

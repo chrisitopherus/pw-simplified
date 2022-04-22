@@ -1,10 +1,67 @@
-# 0.2.0 (shuffle)
+# 0.3.0 (placeholder)
 
 ## Added
 
-* shuffle() - METHOD
+* New Shuffle Options - Riffle and Overhand
+
+```javascript
+// assuming that the instance is called pw
+pw.shuffle(password, 'Riffle');
+pw.shuffle(password, 'Overhand');
+```
+
+* CryptoPassword - Class (using crpyto module for randomizing)
+* generateMany - Method (allows to generate multiple passwords)
+
+```javascript
+// assuming that the instance is called pw
+pw.generateMany(5);
+// example result:
+[ "f=2&3R'O", 'W:mCZN28', ',9C/7{+p', '673Q34x{', 'C5B5#9w0' ] 
+```
+
+```typescript
+// for typescript users, the method will return a tuple
+pw.generateMany(2);
+// type result:
+[string, string]
+
+pw.generateMany(5);
+// type result:
+[string, string, string, string, string]
+```
+
+## Fixed
 
 ## Changed
+
+* Importing the module
+
+```javascript
+// with require
+const {Password, CryptoPassword} = require('pw-simplified');
+// ofc you can give the classes any alias you want, like
+const {Password: Pass, CryptoPassword: CPass} = require('pw-simplified');
+
+// with import
+import {Password, CryptoPassword} from 'pw-simplified';
+// ofc you can give the classes any alias you want, like
+import {Password as Pass, CryptoPassword as CPass} from 'pw-simplified';
+```
+
+* Config `numbers` property to `number`
+
+## Removed
+
+---
+
+## 0.2.0 (shuffle)
+
+### Added
+
+* shuffle() - METHOD
+
+### Changed
 
 * **README.md** - Added Advanced Usage + New Version
 

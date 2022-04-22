@@ -4,7 +4,7 @@ import { randomMath, randomCrypto } from "./util/random.js";
 // import types
 import { GenConfig, ValConfig, GenConfigPartial, ValConfigPartial } from "./types/config";
 import { Counter } from "./types/counter";
-import { ShuffleOptions } from './types/options';
+import { Tuple } from "./types/util.js";
 
 /**
  * @class
@@ -59,9 +59,9 @@ class Password {
                 } else if (key === 'uppercase') {
                     pw += letters.toUpperCase()[randomMath(0, letters.length - 1)];
                     counter.uppercase!++;
-                } else if (key === 'numbers') {
+                } else if (key === 'number') {
                     pw += randomMath(0, 9).toString();
-                    counter.numbers!++;
+                    counter.number!++;
                 } else { // symbols
                     if (typeof this._genConfig.special === 'boolean') { // use predefined specials
                         if (this._genConfig.special) pw += specials[randomMath(0, specials.length - 1)];
@@ -104,20 +104,38 @@ class Password {
         }
     }
 
+    generateMany<T extends number>(count: T) {
+        const pwArray: string[] = [];
+        for (let i = 0; i < count; ++i) {
+            pwArray.push(this.generate());
+        }
+        return pwArray as Tuple<string, T>;
+    }
+
+    /**
+     * Method that rates a given Password.
+     * @param password Password that should be rated.
+     */
+    rate(password: string) {
+
+    }
+
     /**
      * Method that shuffles a given Password.
      * @param password - Password that should be shuffled.
      * @param type - Shuffle type as a string.
      * 
-     * Possible Values: 'Fisher-Yates' | 'Sort' (Sort meaning that it uses the Array.prototype.sort method)
+     * Possible Values: 'Fisher-Yates' | 'Sort' | 'Overhand' | 'Riffle'
      * 
      * Default Value is 'Fisher-Yates'
      */
-    shuffle(password: string, type: ShuffleOptions = 'Fisher-Yates') {
+    shuffle(password: string, type: 'Fisher-Yates' | 'Sort' | 'Overhand' | 'Riffle' = 'Fisher-Yates') {
         let pw: string = '';
         let array = [...password];
+        const len = array.length;
         switch (type) {
             case 'Fisher-Yates':
+                // * well known implementation of the Fisher Yates Shuffle
                 for (let i = array.length - 1; i > 0; --i) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [array[i], array[j]] = [array[j], array[i]];
@@ -125,7 +143,71 @@ class Password {
                 pw = array.join('');
                 break;
             case 'Sort':
+                // * Shuffle with javascript built in sort method
                 array.sort(() => Math.random() - 0.5);
+                pw = array.join('');
+                break;
+            case "Overhand":
+                // * well known overhand shuffle
+                // take some cards from the bottom (1 - 50%)
+                // then drop a random amount to the top
+                // repeat till no cards are left
+                // this proccess will be repeated 12x
+
+                // outer loop, defines the amount of shuffles
+                for (let i = 0; i < 12; ++i) {
+                    // take a stack of letters from the bottom
+                    const stack = array.splice(Math.abs(array.length - randomMath(1, Math.round(array.length / 2))));
+                    let finished = false;
+                    while (!finished) {
+                        if (stack.length === 0) { // stack is empty
+                            finished = true;
+                        } else {
+                            // take random amount of elements of the stack
+                            array.unshift(...stack.splice(0, randomMath(1, stack.length)))
+                        }
+                    }
+                }
+                pw = array.join('');
+                break;
+            case "Riffle":
+                // * well known riffle shuffle
+                // Split into halves
+                // then interleave them
+                // 12x
+
+                // outer loop, defines the amount of shuffles
+                for (let i = 0; i < 12; ++i) {
+                    // copy the current array
+                    const copy = [...array];
+                    // splitting the copy into two halves
+                    const half1 = copy.splice(0, len % 2 === 0 ? len / 2 : Math.ceil(len / 2));
+                    const half2 = copy;
+                    const tempArr: string[] = [];
+                    let j = 0;
+                    let finished = false;
+                    // inner loop, controls the shuffle
+                    while (!finished) {
+                        let temp: string[];
+                        // one of the halves empty -> put the other half on the bottom
+                        if (half1.length === 0 || half2.length === 0) {
+                            if (half1.length === 0) {
+                                tempArr.push(...half2);
+                            } else {
+                                tempArr.push(...half1);
+                            }
+                            finished = true;
+                        } else {
+                            // in the first round decide who starts
+                            if (j === 0) temp = randomMath(0, 1) === 0 ? half1.splice(0, randomMath(0, half1.length)) : half2.splice(0, randomMath(1, half2.length));
+                            // in other rounds go by modulo
+                            else temp = j % 2 === 0 ? half1.splice(0, randomMath(1, half1.length)) : half2.splice(0, randomMath(0, half2.length));
+                            tempArr.push(...temp);
+                        }
+                        ++j;
+                    }
+                    array = tempArr;
+                }
                 pw = array.join('');
                 break;
         }
@@ -138,7 +220,7 @@ class Password {
     protected createGenerationCounters() {
         const counter: Counter = {};
         if (this._genConfig.lowercase) counter.lowercase = 0;
-        if (this._genConfig.numbers) counter.numbers = 0;
+        if (this._genConfig.number) counter.number = 0;
         if (this._genConfig.uppercase) counter.uppercase = 0;
         if (this._genConfig.special) counter.special = 0;
         return counter;
@@ -150,10 +232,10 @@ class Password {
      */
     protected createRegEx(config: ValConfig) {
         let regString = "^";
-        if (config.lowercase || config.numbers || config.uppercase || config.special) {
+        if (config.lowercase || config.number || config.uppercase || config.special) {
             if (config.lowercase) regString += "(?=.*[a-z])";
             if (config.uppercase) regString += "(?=.*[A-Z])";
-            if (config.numbers) regString += "(?=.*\\\d)";
+            if (config.number) regString += "(?=.*\\\d)";
             if (config.special) {
                 if (typeof config.special === 'boolean') { // if true use default value
                     regString += `(?=.*[~\\\`!@#$%^&*()_\\\-+={\\\[}\\\]|\\\\:;"'<,>\\\.?\\\/])`;
@@ -209,9 +291,9 @@ class Password {
      * 
      * @example Setter - Assuming that all props were true and a length was 8.
      * ```javascript
-     * pw.genConfig = {numbers: false}
+     * pw.genConfig = {number: false}
      * // results in
-     * console.log(pw.genConfig) // {length: 8, uppercase: true, lowercase: true, numbers: false, special: true}
+     * console.log(pw.genConfig) // {length: 8, uppercase: true, lowercase: true, number: false, special: true}
      * ```
      */
     set genConfig(newConfig: GenConfigPartial) {
@@ -234,9 +316,9 @@ class Password {
      * 
      * @example Setter - Assuming that all props were true and only a minLength was 8.
      * ```javascript
-     * pw.valConfig = {numbers: false}
+     * pw.valConfig = {number: false}
      * // results in
-     * console.log(pw.valConfig) // {minLength: 8, uppercase: true, lowercase: true, numbers: false, special: true}
+     * console.log(pw.valConfig) // {minLength: 8, uppercase: true, lowercase: true, number: false, special: true}
      * ```
      */
     set valConfig(newConfig: ValConfigPartial) {
@@ -290,9 +372,9 @@ class CryptoPassword extends Password {
                 } else if (key === 'uppercase') {
                     pw += letters.toUpperCase()[randomCrypto(0, letters.length - 1)];
                     counter.uppercase!++;
-                } else if (key === 'numbers') {
+                } else if (key === 'number') {
                     pw += randomCrypto(0, 9).toString();
-                    counter.numbers!++;
+                    counter.number!++;
                 } else { // symbols
                     if (typeof this._genConfig.special === 'boolean') { // use predefined specials
                         if (this._genConfig.special) pw += specials[randomCrypto(0, specials.length - 1)];
@@ -335,17 +417,100 @@ class CryptoPassword extends Password {
         }
     }
 
+    /**
+     * Method that shuffles a given Password.
+     * @param password - Password that should be shuffled.
+     * @param type - Shuffle type as a string.
+     * 
+     * Possible Values: 'Fisher-Yates' | 'Sort' | 'Overhand' | 'Riffle'
+     * 
+     * Default Value is 'Fisher-Yates'
+     */
+    shuffle(password: string, type: 'Fisher-Yates' | 'Sort' | 'Overhand' | 'Riffle' = 'Fisher-Yates') {
+        let pw: string = '';
+        let array = [...password];
+        const len = array.length;
+        switch (type) {
+            case 'Fisher-Yates':
+                // * well known implementation of the Fisher Yates Shuffle
+                for (let i = array.length - 1; i > 0; --i) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                pw = array.join('');
+                break;
+            case 'Sort':
+                // * Shuffle with javascript built in sort method
+                array.sort(() => randomCrypto(0, 1) === 0 ? 1 : -1);
+                pw = array.join('');
+                break;
+            case "Overhand":
+                // * well known overhand shuffle
+                // take some cards from the bottom (1 - 50%)
+                // then drop a random amount to the top
+                // repeat till no cards are left
+                // this proccess will be repeated 12x
+
+                // outer loop, defines the amount of shuffles
+                for (let i = 0; i < 12; ++i) {
+                    // take a stack of letters from the bottom
+                    const stack = array.splice(Math.abs(array.length - randomCrypto(1, Math.round(array.length / 2))));
+                    let finished = false;
+                    while (!finished) {
+                        if (stack.length === 0) { // stack is empty
+                            finished = true;
+                        } else {
+                            // take random amount of elements of the stack
+                            array.unshift(...stack.splice(0, randomCrypto(1, stack.length)))
+                        }
+                    }
+                }
+                pw = array.join('');
+                break;
+            case "Riffle":
+                // * well known riffle shuffle
+                // Split into halves
+                // then interleave them
+                // 12x
+
+                // outer loop, defines the amount of shuffles
+                for (let i = 0; i < 12; ++i) {
+                    // copy the current array
+                    const copy = [...array];
+                    // splitting the copy into two halves
+                    const half1 = copy.splice(0, len % 2 === 0 ? len / 2 : Math.ceil(len / 2));
+                    const half2 = copy;
+                    const tempArr: string[] = [];
+                    let j = 0;
+                    let finished = false;
+                    // inner loop, controls the shuffle
+                    while (!finished) {
+                        let temp: string[];
+                        // one of the halves empty -> put the other half on the bottom
+                        if (half1.length === 0 || half2.length === 0) {
+                            if (half1.length === 0) {
+                                tempArr.push(...half2);
+                            } else {
+                                tempArr.push(...half1);
+                            }
+                            finished = true;
+                        } else {
+                            // in the first round decide who starts
+                            if (j === 0) temp = randomCrypto(0, 1) === 0 ? half1.splice(0, randomCrypto(0, half1.length)) : half2.splice(0, randomCrypto(1, half2.length));
+                            // in other rounds go by modulo
+                            else temp = j % 2 === 0 ? half1.splice(0, randomCrypto(1, half1.length)) : half2.splice(0, randomCrypto(0, half2.length));
+                            tempArr.push(...temp);
+                        }
+                        ++j;
+                    }
+                    array = tempArr;
+                }
+                pw = array.join('');
+                break;
+        }
+        return pw;
+    }
+
 }
 
 export { Password, CryptoPassword };
-
-const pw = new CryptoPassword({
-    length: 8,
-    lowercase: true,
-    numbers: true,
-    special: true,
-    uppercase: true
-}, {
-    minLength: 8
-})
-console.log(pw.genConfig);
