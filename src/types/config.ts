@@ -182,4 +182,6 @@ interface RateConfig {
     }
 };
 
-export { GenConfig, GenConfigPartial, ValConfig, ValConfigPartial, RateConfig, PointRange, PointMax };
+type RateConfigPartial = Partial<RateConfig>;
+
+export { GenConfig, GenConfigPartial, ValConfig, ValConfigPartial, RateConfig, RateConfigPartial, PointRange, PointMax };

@@ -1,10 +1,14 @@
+// import classes
+import { Rater } from "./classes/rate.js";
+
 // import util
 import { randomMath, randomCrypto } from "./util/random.js";
 
 // import types
-import { GenConfig, ValConfig, GenConfigPartial, ValConfigPartial } from "./types/config";
+import { GenConfig, ValConfig, GenConfigPartial, ValConfigPartial, RateConfig, RateConfigPartial } from "./types/config";
 import { Counter } from "./types/counter";
-import { Tuple } from "./types/util.js";
+import { ScanObject, ScanTuple } from "./types/general";
+import { Tuple } from "./types/util";
 
 /**
  * @class
@@ -14,15 +18,19 @@ class Password {
     protected _genConfig: GenConfig;
     protected _valConfig: ValConfig;
     protected _valRegEx: RegExp;
+    protected _raterInstance?: Rater;
     /**
      * @constructor
      * @param genConfig Configuration Object for generating Passwords
      * @param valConfig Configuration Object for validating Passwords. Its worth noting that it will be checked if the true values exist at least once. All other characters are also allowed.
      */
-    constructor(genConfig: GenConfig, valConfig: ValConfig) {
+    constructor(genConfig: GenConfig, valConfig: ValConfig, rateConfig?: RateConfig) {
         this._genConfig = genConfig;
         this._valConfig = valConfig;
         this._valRegEx = this.createRegEx(valConfig);
+        if (rateConfig) {
+            this._raterInstance = new Rater(rateConfig);
+        }
     }
 
     /**
@@ -46,8 +54,8 @@ class Password {
         if (this._genConfig.length && this._genConfig.length > 0) { // if value was set and bigger than 0
             let pw = '';
             const letters = 'abcdefghijklmnopqrstuvwxyz';
-            const specials = `~\`!@#$%^&*()_-+={[}]|\\:;"'<,>.?/`;
-            const counter: Counter = this.createGenerationCounters();
+            const specials = `~\`!@#€$%^&*()_-+={[}]|\\:;"'<,>.?/`;
+            const counter: Counter = this.createCounters();
             const availableCounters = Object.keys(counter);
             const count = availableCounters.length;
             const removedCounters: string[] = [];
@@ -118,6 +126,76 @@ class Password {
      */
     rate(password: string) {
 
+    }
+
+    /**
+     * Method that scans a given Password.
+     * @param password Password that should be scanned.
+     */
+    scan(password: string, out: "tup"): ScanTuple;
+    scan(password: string, out: "csv"): string;
+    scan(password: string, out: "obj"): ScanObject;
+    scan(password: string, out: "tup" | "csv" | "obj") {
+        const regs = {
+            U: new RegExp("[A-Z]", "g"),
+            L: new RegExp("[a-z]", "g"),
+            N: new RegExp("[0-9]", "g"),
+            S: new RegExp(`[~\\\`!@#$€%^&*()_\\\-+={\\\[}\\\]|\\\\:;"'<,>\\\.?\\\/]`, "g")
+        }
+        const counters: Required<Counter> & { unknown: number } = {
+            lowercase: 0,
+            number: 0,
+            special: 0,
+            uppercase: 0,
+            unknown: 0
+        };
+        const start = new Date().getTime();
+        for (let i = 0; i < password.length; ++i) {
+            if (password[i].match(regs.U)) counters.uppercase++;
+            else if (password[i].match(regs.L)) counters.lowercase++;
+            else if (password[i].match(regs.N)) counters.number++;
+            else if (password[i].match(regs.S)) counters.special++;
+            else counters.unknown++;
+        }
+        const time = new Date().getTime() - start;
+        switch (out) {
+            case "obj":
+                return {
+                    length: password.length,
+                    lowercase: counters.lowercase,
+                    uppercase: counters.uppercase,
+                    number: counters.number,
+                    special: counters.special,
+                    unknown: counters.unknown,
+                    time
+                };
+            case "csv":
+                const keys = Object.keys(counters);
+                // creating header line
+                let csv = `length;`;
+                for (let i = 0; i < 6; ++i) {
+                    if (i === 0) {
+                        for (let i = 0; i < keys.length; ++i) csv += keys[i] + ";";
+                        csv += `time\n${password.length};`;
+                    }
+                    if (i !== 5) {
+                        csv += `${counters[keys[i]]};`;
+                    } else {
+                        csv += `${time};`;
+                    }
+                }
+                return csv;
+            case "tup":
+                return [
+                    ["length", password.length],
+                    ["lowercase", counters.lowercase],
+                    ["uppercase", counters.uppercase],
+                    ["number", counters.number],
+                    ["special", counters.special],
+                    ["unknown", counters.unknown],
+                    ["time", time]
+                ]
+        }
     }
 
     /**
@@ -217,7 +295,7 @@ class Password {
     /**
      * Method that creates the counter Object.
      */
-    protected createGenerationCounters() {
+    protected createCounters() {
         const counter: Counter = {};
         if (this._genConfig.lowercase) counter.lowercase = 0;
         if (this._genConfig.number) counter.number = 0;
@@ -238,7 +316,7 @@ class Password {
             if (config.number) regString += "(?=.*\\\d)";
             if (config.special) {
                 if (typeof config.special === 'boolean') { // if true use default value
-                    regString += `(?=.*[~\\\`!@#$%^&*()_\\\-+={\\\[}\\\]|\\\\:;"'<,>\\\.?\\\/])`;
+                    regString += `(?=.*[~\\\`!@#€$%^&*()_\\\-+={\\\[}\\\]|\\\\:;"'<,>\\\.?\\\/])`;
                 } else { // use user defined value
                     regString += config.special;
                 }
@@ -334,6 +412,15 @@ class Password {
     get valConfig(): Readonly<ValConfig> {
         return Object.freeze(Object.assign({}, this._valConfig));
     }
+
+    set rateConfig(newConfig: RateConfigPartial) {
+        if (this._raterInstance) {
+            // if there is already an instance
+        } else {
+            // create a new instance
+            this._raterInstance = new Rater(newConfig);
+        }
+    }
 }
 
 // ! CryptoPassword should extend Password in order to prevent DRY
@@ -348,8 +435,8 @@ class CryptoPassword extends Password {
      * @param genConfig Configuration Object for generating Passwords
      * @param valConfig Configuration Object for validating Passwords. Its worth noting that it will be checked if the true values exist at least once. All other characters are also allowed.
      */
-    constructor(genConfig: GenConfig, valConfig: ValConfig) {
-        super(genConfig, valConfig);
+    constructor(genConfig: GenConfig, valConfig: ValConfig, rateConfig?: RateConfig) {
+        super(genConfig, valConfig, rateConfig);
     }
 
     /**
@@ -360,7 +447,7 @@ class CryptoPassword extends Password {
             let pw = '';
             const letters = 'abcdefghijklmnopqrstuvwxyz';
             const specials = `~\`!@#$%^&*()_-+={[}]|\\:;"'<,>.?/`;
-            const counter: Counter = this.createGenerationCounters();
+            const counter: Counter = this.createCounters();
             const availableCounters = Object.keys(counter);
             const count = availableCounters.length;
             const removedCounters: string[] = [];
@@ -514,3 +601,16 @@ class CryptoPassword extends Password {
 }
 
 export { Password, CryptoPassword };
+
+const pw = new Password({
+    length: 8,
+    lowercase: true,
+    number: true,
+    special: true,
+    uppercase: true
+}, {
+    minLength: 1
+});
+const pass = pw.generate();
+console.log({ pass });
+const tup = pw.scan(pass, "tup");
